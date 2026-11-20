@@ -1,31 +1,101 @@
-const form = document.querySelector("#ticket-form");
-const list = document.querySelector("#ticket-list");
-const status = document.querySelector("#status");
-const summary = document.querySelector("#summary");
-const refreshButton = document.querySelector("#refresh-button");
-const sendButton = document.querySelector("#send-button");
-function setStatus(text, kind = "info") {
-  status.textContent = text;
-  status.dataset.kind = kind;
-}
 function renderTickets(items) {
-  // TODO 1: очистите list и создайте карточку каждого обращения через createElement/textContent.
-  // В карточке нужны номер #id, имя, текст проблемы и статус.
+  ticketsList.innerHTML = '';
+
+  if (!Array.isArray(items) || items.length === 0) {
+    const emptyEl = document.createElement('p');
+    emptyEl.className = 'empty-state';
+    emptyEl.textContent = 'Обращений пока нет.';
+    ticketsList.appendChild(emptyEl);
+    return;
+  }
+
+  items.forEach((ticket) => {
+    const card = document.createElement('article');
+    card.className = 'ticket-card';
+
+    const header = document.createElement('div');
+    header.className = 'ticket-header';
+
+    const title = document.createElement('strong');
+    title.textContent = `Заявка #${ticket.id} — ${ticket.customer}`;
+
+    const status = document.createElement('span');
+    status.className = 'ticket-status';
+    status.textContent = ticket.status || 'Новая';
+
+    header.append(title, status);
+
+    const problemText = document.createElement('p');
+    problemText.className = 'ticket-problem';
+    problemText.textContent = ticket.problem;
+
+    card.append(header, problemText);
+    ticketsList.appendChild(card);
+  });
 }
+
 async function loadTickets() {
-  // TODO 2: GET /api/tickets → проверка response.ok → response.json() → renderTickets(data.items).
-  // Отобразите data.total в #summary; ошибки покажите через setStatus().
-  setStatus("TODO: выполните GET-запрос");
+  try {
+    const response = await fetch('/api/tickets');
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    renderTickets(data.items);
+
+    if (totalCounter) {
+      totalCounter.textContent = data.total;
+    }
+  } catch (error) {
+    setStatus(`Ошибка загрузки: ${error.message}`, true);
+  }
 }
+
 async function createTicket(payload) {
-  // TODO 3: POST /api/tickets с заголовком Content-Type: application/json.
-  // Передайте JSON.stringify(payload); проверьте код ответа и прочитайте JSON.
+  const response = await fetch('/api/tickets', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || `HTTP ${response.status}`);
+  }
+
+  return data;
 }
-form.addEventListener("submit", async (event) => {
+
+ticketForm.addEventListener('submit', async (event) => {
   event.preventDefault();
-  // TODO 4: проверьте данные, отключите sendButton на период запроса,
-  // вызовите createTicket(), очистите поля после успеха и обновите список через GET.
-  setStatus("TODO: обработайте отправку формы");
+
+  const customer = customerInput.value.trim();
+  const problem = problemInput.value.trim();
+
+  if (customer.length < 2 || problem.length < 5) {
+    setStatus('Заполните имя (от 2 символов) и проблему (от 5 символов).', true);
+    return;
+  }
+
+  submitBtn.disabled = true;
+
+  try {
+    const result = await createTicket({ customer, problem });
+    setStatus(result.message || 'Заявка создана', false);
+    ticketForm.reset();
+    await loadTickets();
+  } catch (error) {
+    setStatus(error.message, true);
+  } finally {
+    submitBtn.disabled = false;
+  }
 });
-refreshButton.addEventListener("click", loadTickets);
-// TODO 5: вызовите loadTickets() при загрузке страницы.
+
+refreshBtn.addEventListener('click', loadTickets);
+document.addEventListener('DOMContentLoaded', loadTickets);
+
