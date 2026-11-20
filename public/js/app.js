@@ -1,36 +1,49 @@
+const form = document.getElementById('ticket-form');
+const customerInput = document.getElementById('customer');
+const problemInput = document.getElementById('problem');
+const sendButton = document.getElementById('send-button');
+const refreshButton = document.getElementById('refresh-button');
+const statusBox = document.getElementById('status');
+const summaryBox = document.getElementById('summary');
+const ticketList = document.getElementById('ticket-list');
+
+function setStatus(message, isError = false) {
+  statusBox.textContent = message;
+  statusBox.classList.toggle('error', isError);
+}
+
 function renderTickets(items) {
-  ticketsList.innerHTML = '';
+  ticketList.innerHTML = '';
 
   if (!Array.isArray(items) || items.length === 0) {
-    const emptyEl = document.createElement('p');
-    emptyEl.className = 'empty-state';
-    emptyEl.textContent = 'Обращений пока нет.';
-    ticketsList.appendChild(emptyEl);
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.textContent = 'Обращений пока нет.';
+    ticketList.appendChild(empty);
     return;
   }
 
   items.forEach((ticket) => {
     const card = document.createElement('article');
-    card.className = 'ticket-card';
+    card.className = 'card';
 
-    const header = document.createElement('div');
-    header.className = 'ticket-header';
+    const head = document.createElement('div');
+    head.className = 'card-head';
 
     const title = document.createElement('strong');
-    title.textContent = `Заявка #${ticket.id} — ${ticket.customer}`;
+    title.textContent = `#${ticket.id} — ${ticket.customer}`;
 
-    const status = document.createElement('span');
-    status.className = 'ticket-status';
-    status.textContent = ticket.status || 'Новая';
+    const badge = document.createElement('span');
+    badge.className = 'badge';
+    badge.textContent = ticket.status || 'Новая';
 
-    header.append(title, status);
+    head.append(title, badge);
 
-    const problemText = document.createElement('p');
-    problemText.className = 'ticket-problem';
-    problemText.textContent = ticket.problem;
+    const text = document.createElement('p');
+    text.textContent = ticket.problem;
 
-    card.append(header, problemText);
-    ticketsList.appendChild(card);
+    card.append(head, text);
+    ticketList.appendChild(card);
   });
 }
 
@@ -44,10 +57,8 @@ async function loadTickets() {
 
     const data = await response.json();
     renderTickets(data.items);
-
-    if (totalCounter) {
-      totalCounter.textContent = data.total;
-    }
+    summaryBox.textContent = `Всего обращений: ${data.total}`;
+    setStatus('Список обращений актуален.', false);
   } catch (error) {
     setStatus(`Ошибка загрузки: ${error.message}`, true);
   }
@@ -71,31 +82,32 @@ async function createTicket(payload) {
   return data;
 }
 
-ticketForm.addEventListener('submit', async (event) => {
+form.addEventListener('submit', async (event) => {
   event.preventDefault();
 
   const customer = customerInput.value.trim();
   const problem = problemInput.value.trim();
 
   if (customer.length < 2 || problem.length < 5) {
-    setStatus('Заполните имя (от 2 символов) и проблему (от 5 символов).', true);
+    setStatus('Укажите имя (от 2 символов) и проблему (от 5 символов).', true);
     return;
   }
 
-  submitBtn.disabled = true;
+  sendButton.disabled = true;
 
   try {
     const result = await createTicket({ customer, problem });
-    setStatus(result.message || 'Заявка создана', false);
-    ticketForm.reset();
+    form.reset();
     await loadTickets();
+    setStatus(result.message || 'Заявка создана.', false);
   } catch (error) {
     setStatus(error.message, true);
   } finally {
-    submitBtn.disabled = false;
+    sendButton.disabled = false;
   }
 });
 
-refreshBtn.addEventListener('click', loadTickets);
-document.addEventListener('DOMContentLoaded', loadTickets);
+refreshButton.addEventListener('click', loadTickets);
+loadTickets();
+
 
